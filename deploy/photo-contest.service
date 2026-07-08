@@ -1,0 +1,20 @@
+[Unit]
+Description=Photo Contest Scoring App
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/photo-contest
+Environment=PHOTO_CONTEST_HOME=/opt/photo-contest
+EnvironmentFile=-/opt/photo-contest/.env
+ExecStart=/opt/photo-contest/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/photo-contest
+
+[Install]
+WantedBy=multi-user.target

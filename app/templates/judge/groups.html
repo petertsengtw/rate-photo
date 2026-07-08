@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}選擇組別{% endblock %}
+{% block nav %}{% include "judge/_nav.html" %}{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>請選擇要評分的組別</h2>
+  <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));">
+    {% for row in summary %}
+    <a href="/judge/photos?group={{ row.group.code }}" class="photo-tile" style="padding:1.2rem;">
+      <h3 style="margin:0 0 0.4rem;">{{ row.group.name }}</h3>
+      <p class="muted" style="margin:0;">共 {{ row.total }} 件,已評 {{ row.scored }} 件</p>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

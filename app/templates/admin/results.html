@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}成績總表{% endblock %}
+{% block nav %}{% include "admin/_nav.html" %}{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>成績總表</h2>
+  <div class="group-tabs">
+    {% for g in groups %}
+    <a href="/admin/results?group={{ g.code }}" class="{{ 'active' if g.code == current_group else '' }}">{{ g.name }}</a>
+    {% endfor %}
+  </div>
+  <p>
+    <a class="btn" href="/admin/results/export.csv?group={{ current_group }}">匯出 CSV</a>
+    {% if not admin.is_readonly %}
+    <a class="btn secondary" href="/admin/backup.db">下載資料庫備份</a>
+    {% endif %}
+  </p>
+  <p class="muted">同分時依序比較:①≥{{ high_score_threshold }} 分評審人數 ②單一評審最高分,仍完全相同才會並列名次。</p>
+  <table>
+    <thead><tr><th>排名</th><th>編號</th><th>加權平均分</th><th>已評分 / 總評審數</th><th>≥{{ high_score_threshold }} 分人數</th><th>單一最高分</th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.rank if row.rank is not none else '—' }}</td>
+        <td>{{ row.photo.code }}</td>
+        <td>{{ row.average if row.average is not none else '尚未評分' }}</td>
+        <td>{{ row.judged_count }} / {{ row.total_judges }}</td>
+        <td>{{ row.high_score_count if row.average is not none else '—' }}</td>
+        <td>{{ row.max_single_score if row.average is not none else '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">此組別尚無照片</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}評分 - {{ photo.code }}{% endblock %}
+{% block nav %}{% include "judge/_nav.html" %}{% endblock %}
+{% block content %}
+<div class="card">
+  <p><a href="/judge/photos?group={{ group_code }}">&larr; 返回照片列表</a></p>
+  <h2>編號 {{ photo.code }}{% if photo.title %} — {{ photo.title }}{% endif %}</h2>
+  <img class="score-photo" src="/media/{{ photo.image_path }}" alt="{{ photo.code }}">
+  {% if photo.caption %}
+  <p class="muted" style="font-size:1rem;margin-top:-0.5rem;">{{ photo.caption }}</p>
+  {% endif %}
+
+  <form method="post" action="/judge/photos/{{ photo.id }}/score" id="score-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if criteria %}
+    <p class="muted">以下每個項目請個別評 {{ score_min }}~{{ score_max }} 分(整數)。項目旁的「佔比」是指該項目在總分中的權重,<strong>不是分數上限</strong>,系統會自動加權換算。</p>
+    {% endif %}
+    {% for c in criteria %}
+    <div class="criterion-row">
+      <div class="criterion-info">
+        <label for="score_{{ c.id }}" style="margin:0;">{{ c.name }}</label>
+        <div class="muted" style="font-size:0.8rem;">佔總分權重 {{ c.weight }}%</div>
+      </div>
+      <input
+        type="number"
+        id="score_{{ c.id }}"
+        name="score_{{ c.id }}"
+        min="{{ score_min }}"
+        max="{{ score_max }}"
+        step="1"
+        required
+        placeholder="{{ score_min }}-{{ score_max }}"
+        data-weight="{{ c.weight }}"
+        value="{{ existing_values.get(c.name, '') }}"
+        oninput="updateTotal()">
+    </div>
+    {% else %}
+    <p class="muted">尚未設定評分項目,請聯絡主辦單位。</p>
+    {% endfor %}
+
+    <div class="weighted-total">加權總分:<span id="total-display">{{ existing_total if existing_total is not none else '—' }}</span></div>
+
+    <button type="submit" {{ 'disabled' if not criteria else '' }}>送出 / 更新分數</button>
+  </form>
+</div>
+
+<script>
+function updateTotal() {
+  const inputs = document.querySelectorAll('#score-form input[type=number]');
+  let weightedSum = 0, totalWeight = 0, allFilled = true;
+  inputs.forEach(input => {
+    const weight = parseFloat(input.dataset.weight);
+    const value = parseFloat(input.value);
+    totalWeight += weight;
+    if (isNaN(value)) { allFilled = false; return; }
+    weightedSum += value * weight;
+  });
+  const display = document.getElementById('total-display');
+  if (!allFilled || totalWeight === 0) { display.textContent = '—'; return; }
+  display.textContent = (weightedSum / totalWeight).toFixed(2);
+}
+</script>
+{% endblock %}

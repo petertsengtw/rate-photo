@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+data.db
+data.db.bak*
+.env
+.secret_key
+uploads/*
+!uploads/.gitkeep
+*.egg-info/
+.pytest_cache/
+.claude/
+.DS_Store

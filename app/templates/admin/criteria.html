@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}評分項目設定{% endblock %}
+{% block nav %}{% include "admin/_nav.html" %}{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>評分項目設定</h2>
+  <p class="muted">目前權重總和:{{ total_weight }}{% if total_weight != 100 %}(建議加總為 100){% endif %}</p>
+  <table>
+    <thead><tr><th>名稱</th><th>權重</th>{% if not admin.is_readonly %}<th></th>{% endif %}</tr></thead>
+    <tbody>
+      {% for c in criteria %}
+      <tr>
+        <td>{{ c.name }}</td>
+        <td>{{ c.weight }}</td>
+        {% if not admin.is_readonly %}<td><button class="danger" onclick="deleteCriteria({{ c.id }})">刪除</button></td>{% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="muted">尚未設定評分項目</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if not admin.is_readonly %}
+<div class="card" style="max-width:420px;">
+  <h3>新增評分項目</h3>
+  <form method="post" action="/admin/criteria">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>名稱</label>
+    <input type="text" name="name" required placeholder="例如:構圖">
+    <label>權重</label>
+    <input type="number" name="weight" min="1" required placeholder="例如:30">
+    <button type="submit">新增</button>
+  </form>
+</div>
+
+<script>
+const csrfToken = "{{ csrf_token }}";
+async function deleteCriteria(id) {
+  if (!confirm("確定要刪除此評分項目嗎?")) return;
+  const res = await fetch(`/admin/criteria/${id}`, {
+    method: "DELETE",
+    headers: { "X-CSRF-Token": csrfToken }
+  });
+  if (res.ok) { location.reload(); } else { alert("刪除失敗"); }
+}
+</script>
+{% endif %}
+{% endblock %}

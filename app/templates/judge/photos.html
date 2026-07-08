@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }} - 照片列表{% endblock %}
+{% block nav %}{% include "judge/_nav.html" %}{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>{{ group.name }}</h2>
+  {% if request.query_params.get('saved') %}
+  <p class="success">編號 {{ request.query_params.get('saved') }} 已儲存評分</p>
+  {% endif %}
+  <div class="grid">
+    {% for row in photo_rows %}
+    <a href="/judge/photos/{{ row.photo.id }}" class="photo-tile {{ 'scored' if row.scored else '' }}">
+      <img src="/media/{{ row.photo.image_path }}" alt="{{ row.photo.code }}">
+      <div class="tile-label">
+        <span>{{ row.photo.code }}</span>
+        <span class="badge {{ 'scored' if row.scored else '' }}">{{ '已評分 %.2f'|format(row.weighted_total) if row.scored else '未評分' }}</span>
+      </div>
+    </a>
+    {% else %}
+    <p class="muted">此組別尚無照片</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

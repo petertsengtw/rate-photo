@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}評審管理{% endblock %}
+{% block nav %}{% include "admin/_nav.html" %}{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>評審管理</h2>
+  {% if not admin.is_readonly %}
+  <p class="muted">請將每位評審的專屬連結私下傳送給對應評審,連結可免密碼直接登入。</p>
+  {% endif %}
+  <table>
+    <thead>
+      <tr>
+        <th>姓名</th><th>帳號</th>
+        {% if not admin.is_readonly %}<th>專屬連結</th><th></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for j in judges %}
+      <tr>
+        <td>{{ j.name }}</td>
+        <td>{{ j.username }}</td>
+        {% if not admin.is_readonly %}
+        <td><code class="link-box">{{ judge_links[j.id] }}</code></td>
+        <td><button class="danger" onclick="deleteJudge({{ j.id }})">刪除</button></td>
+        {% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">尚未新增評審</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if not admin.is_readonly %}
+<div class="card" style="max-width:420px;">
+  <h3>新增評審</h3>
+  <form method="post" action="/admin/judges">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>姓名</label>
+    <input type="text" name="name" required>
+    <label>帳號</label>
+    <input type="text" name="username" required>
+    <label>密碼</label>
+    <input type="password" name="password" required>
+    <button type="submit">新增</button>
+  </form>
+</div>
+
+<script>
+const csrfToken = "{{ csrf_token }}";
+async function deleteJudge(id) {
+  if (!confirm("確定要刪除此評審嗎?其評分紀錄將一併刪除。")) return;
+  const res = await fetch(`/admin/judges/${id}`, {
+    method: "DELETE",
+    headers: { "X-CSRF-Token": csrfToken }
+  });
+  if (res.ok) { location.reload(); } else { alert("刪除失敗"); }
+}
+</script>
+{% endif %}
+{% endblock %}

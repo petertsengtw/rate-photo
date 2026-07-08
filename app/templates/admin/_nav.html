@@ -1,0 +1,8 @@
+<a href="/admin/criteria">評分項目</a>
+<a href="/admin/judges">評審管理</a>
+<a href="/admin/photos">照片管理</a>
+<a href="/admin/results">成績總表</a>
+<form class="inline" method="post" action="/admin/logout">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <button type="submit" class="secondary" style="margin:0;padding:0.3rem 0.7rem;">登出</button>
+</form>
