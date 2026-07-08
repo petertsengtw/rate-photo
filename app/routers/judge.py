@@ -8,12 +8,15 @@ from app.auth import (
     clear_judge_session,
     ensure_csrf_cookie,
     get_current_judge,
+    require_judge_agreed,
     set_judge_session,
     verify_csrf,
 )
 from app.config import SCORE_MAX, SCORE_MIN
+from app.contest_settings import get_or_create_settings
 from app.database import get_db
 from app.models import Criteria, Group, Judge, Photo, Score
+from app.models import utcnow as _utcnow
 from app.render import templates
 from app.scoring import compute_weighted_total, parse_criteria_json
 from app.security import login_rate_limiter, verify_password
@@ -92,6 +95,54 @@ async def logout(request: Request):
     return redirect
 
 
+# ---------- Contest rules agreement ----------
+
+
+@router.get("/agreement")
+def agreement_form(
+    request: Request,
+    response: Response,
+    judge: Judge = Depends(get_current_judge),
+    db: Session = Depends(get_db),
+):
+    csrf_token = ensure_csrf_cookie(request, response)
+    if judge.agreed_at is not None:
+        return RedirectResponse(url="/judge/groups", status_code=303)
+    settings = get_or_create_settings(db)
+    tmpl_response = templates.TemplateResponse(
+        request,
+        "judge/agreement.html",
+        {"rules_text": settings.rules_text, "csrf_token": csrf_token, "error": None},
+    )
+    return _apply_cookies(tmpl_response, response)
+
+
+@router.post("/agreement")
+async def agreement_submit(
+    request: Request,
+    agree: str = Form(""),
+    judge: Judge = Depends(get_current_judge),
+    db: Session = Depends(get_db),
+):
+    await verify_csrf(request)
+    if agree != "yes":
+        settings = get_or_create_settings(db)
+        csrf_token = request.cookies.get("csrf_token", "")
+        return templates.TemplateResponse(
+            request,
+            "judge/agreement.html",
+            {
+                "rules_text": settings.rules_text,
+                "csrf_token": csrf_token,
+                "error": "請先勾選「我已閱讀並同意」才能開始評分",
+            },
+            status_code=400,
+        )
+    judge.agreed_at = _utcnow()
+    db.commit()
+    return RedirectResponse(url="/judge/groups", status_code=303)
+
+
 # ---------- Groups & photo list ----------
 
 
@@ -99,12 +150,14 @@ async def logout(request: Request):
 def groups_page(
     request: Request,
     response: Response,
-    judge: Judge = Depends(get_current_judge),
+    judge: Judge = Depends(require_judge_agreed),
     db: Session = Depends(get_db),
 ):
     csrf_token = ensure_csrf_cookie(request, response)
     groups = db.query(Group).order_by(Group.id).all()
     summary = []
+    total_all = 0
+    scored_all = 0
     for g in groups:
         total = db.query(Photo).filter_by(group_id=g.id).count()
         scored = (
@@ -114,10 +167,41 @@ def groups_page(
             .count()
         )
         summary.append({"group": g, "total": total, "scored": scored})
+        total_all += total
+        scored_all += scored
+
+    all_scored = total_all > 0 and total_all == scored_all
     tmpl_response = templates.TemplateResponse(
-        request, "judge/groups.html", {"summary": summary, "csrf_token": csrf_token}
+        request,
+        "judge/groups.html",
+        {
+            "summary": summary,
+            "csrf_token": csrf_token,
+            "all_scored": all_scored,
+            "submitted": judge.submitted_at is not None,
+        },
     )
     return _apply_cookies(tmpl_response, response)
+
+
+@router.post("/submit")
+async def submit_final(
+    request: Request,
+    judge: Judge = Depends(require_judge_agreed),
+    db: Session = Depends(get_db),
+):
+    await verify_csrf(request)
+    if judge.submitted_at is not None:
+        return RedirectResponse(url="/judge/groups", status_code=303)
+
+    total_all = db.query(Photo).count()
+    scored_all = db.query(Score).filter_by(judge_id=judge.id).count()
+    if total_all == 0 or scored_all < total_all:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="尚有照片未評分,無法送出")
+
+    judge.submitted_at = _utcnow()
+    db.commit()
+    return RedirectResponse(url="/judge/groups", status_code=303)
 
 
 @router.get("/photos")
@@ -125,7 +209,7 @@ def photos_list(
     request: Request,
     response: Response,
     group: str = "staff",
-    judge: Judge = Depends(get_current_judge),
+    judge: Judge = Depends(require_judge_agreed),
     db: Session = Depends(get_db),
 ):
     csrf_token = ensure_csrf_cookie(request, response)
@@ -144,7 +228,12 @@ def photos_list(
     tmpl_response = templates.TemplateResponse(
         request,
         "judge/photos.html",
-        {"group": group_obj, "photo_rows": photo_rows, "csrf_token": csrf_token},
+        {
+            "group": group_obj,
+            "photo_rows": photo_rows,
+            "csrf_token": csrf_token,
+            "locked": judge.submitted_at is not None,
+        },
     )
     return _apply_cookies(tmpl_response, response)
 
@@ -157,7 +246,7 @@ def photo_detail(
     photo_id: int,
     request: Request,
     response: Response,
-    judge: Judge = Depends(get_current_judge),
+    judge: Judge = Depends(require_judge_agreed),
     db: Session = Depends(get_db),
 ):
     csrf_token = ensure_csrf_cookie(request, response)
@@ -176,10 +265,12 @@ def photo_detail(
             "criteria": criteria,
             "existing_values": existing_values,
             "existing_total": existing_score.weighted_total if existing_score else None,
+            "existing_comment": existing_score.comment if existing_score else "",
             "csrf_token": csrf_token,
             "score_min": SCORE_MIN,
             "score_max": SCORE_MAX,
             "group_code": photo.group.code,
+            "locked": judge.submitted_at is not None,
         },
     )
     return _apply_cookies(tmpl_response, response)
@@ -189,10 +280,13 @@ def photo_detail(
 async def submit_score(
     photo_id: int,
     request: Request,
-    judge: Judge = Depends(get_current_judge),
+    judge: Judge = Depends(require_judge_agreed),
     db: Session = Depends(get_db),
 ):
     await verify_csrf(request)
+    if judge.submitted_at is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="您已完成並送出評分,無法再修改")
+
     photo = db.get(Photo, photo_id)
     if not photo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到照片")
@@ -213,12 +307,14 @@ async def submit_score(
             )
         criteria_scores[c.name] = value
 
+    comment = str(form.get("comment", "")).strip() or None
     weighted_total = compute_weighted_total(criteria_scores, criteria)
 
     existing = db.query(Score).filter_by(judge_id=judge.id, photo_id=photo.id).first()
     if existing:
         existing.criteria_json = json.dumps(criteria_scores, ensure_ascii=False)
         existing.weighted_total = weighted_total
+        existing.comment = comment
     else:
         db.add(
             Score(
@@ -226,6 +322,7 @@ async def submit_score(
                 photo_id=photo.id,
                 criteria_json=json.dumps(criteria_scores, ensure_ascii=False),
                 weighted_total=weighted_total,
+                comment=comment,
             )
         )
     db.commit()

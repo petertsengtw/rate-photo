@@ -17,6 +17,7 @@ from app.auth import (
     verify_csrf,
 )
 from app.config import DATABASE_URL, HIGH_SCORE_THRESHOLD
+from app.contest_settings import get_or_create_settings
 from app.database import get_db
 from app.models import AdminUser, Criteria, Group, Judge, Photo, Score
 from app.render import templates
@@ -315,6 +316,7 @@ def _compute_results(db: Session, group_code: str):
     judges = db.query(Judge).order_by(Judge.id).all()
     photos = db.query(Photo).filter_by(group_id=group_obj.id).order_by(Photo.code).all()
 
+    judge_names = {j.id: j.name for j in judges}
     rows = []
     for photo in photos:
         scores = db.query(Score).filter_by(photo_id=photo.id).all()
@@ -326,6 +328,11 @@ def _compute_results(db: Session, group_code: str):
             avg = round(sum(s.weighted_total for s in scores) / len(scores), 2)
             high_score_count = sum(1 for s in scores if s.weighted_total >= HIGH_SCORE_THRESHOLD)
             max_single_score = max(s.weighted_total for s in scores)
+        comments = [
+            {"judge_name": judge_names.get(s.judge_id, "?"), "comment": s.comment}
+            for s in scores
+            if s.comment
+        ]
         rows.append(
             {
                 "photo": photo,
@@ -335,6 +342,7 @@ def _compute_results(db: Session, group_code: str):
                 "judged_by": judged_by,
                 "high_score_count": high_score_count,
                 "max_single_score": max_single_score,
+                "comments": comments,
             }
         )
 
@@ -397,9 +405,10 @@ def export_csv(
     rows, judges = _compute_results(db, group)
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    header = ["排名", "編號", "加權平均分", "已評分評審數", "總評審數", f"≥{HIGH_SCORE_THRESHOLD}分評審人數(破同分用)", "單一評審最高分(破同分用)"]
+    header = ["排名", "編號", "加權平均分", "已評分評審數", "總評審數", f"≥{HIGH_SCORE_THRESHOLD}分評審人數(破同分用)", "單一評審最高分(破同分用)", "評語"]
     writer.writerow(header)
     for row in rows:
+        comments_text = " | ".join(f"{c['judge_name']}:{c['comment']}" for c in row["comments"])
         writer.writerow(
             [
                 row["rank"] if row["rank"] is not None else "尚未評分",
@@ -409,6 +418,7 @@ def export_csv(
                 row["total_judges"],
                 row["high_score_count"] if row["average"] is not None else "",
                 row["max_single_score"] if row["average"] is not None else "",
+                comments_text,
             ]
         )
     buffer.seek(0)
@@ -435,3 +445,38 @@ def download_backup(admin: AdminUser = Depends(require_admin_write)):
         tmp_path = Path(tmp.name)
     shutil.copyfile(db_path, tmp_path)
     return FileResponse(tmp_path, filename="photo-contest-backup.db", background=None)
+
+
+# ---------- Settings ----------
+
+
+@router.get("/settings")
+def settings_page(
+    request: Request,
+    response: Response,
+    admin: AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    csrf_token = ensure_csrf_cookie(request, response)
+    settings = get_or_create_settings(db)
+    tmpl_response = templates.TemplateResponse(
+        request,
+        "admin/settings.html",
+        {"settings": settings, "csrf_token": csrf_token, "admin": admin},
+    )
+    tmpl_response.headers.raw.extend(response.raw_headers)
+    return tmpl_response
+
+
+@router.post("/settings")
+async def update_settings(
+    request: Request,
+    rules_text: str = Form(""),
+    admin: AdminUser = Depends(require_admin_write),
+    db: Session = Depends(get_db),
+):
+    await verify_csrf(request)
+    settings = get_or_create_settings(db)
+    settings.rules_text = rules_text.strip() or None
+    db.commit()
+    return RedirectResponse(url="/admin/settings", status_code=303)

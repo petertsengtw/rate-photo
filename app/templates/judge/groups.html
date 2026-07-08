@@ -13,4 +13,22 @@
     {% endfor %}
   </div>
 </div>
+
+<div class="card">
+  {% if submitted %}
+  <p class="success" style="font-size:1.2rem;">評分結果已送出,感恩 🙏</p>
+  <p class="muted">您的評分已完成送出並鎖定,如需修改請聯絡主辦單位。</p>
+  {% else %}
+  <h3>完成所有評分後,請按下方按鈕送出</h3>
+  {% if all_scored %}
+  <form method="post" action="/judge/submit">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" onclick="return confirm('送出後將無法再修改任何分數,確定要送出嗎?');">完成評分,送出結果</button>
+  </form>
+  {% else %}
+  <p class="error">尚有照片未評分,全部評分完成後才能送出。</p>
+  <button disabled>完成評分,送出結果</button>
+  {% endif %}
+  {% endif %}
+</div>
 {% endblock %}

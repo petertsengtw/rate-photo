@@ -10,6 +10,10 @@
   <p class="muted" style="font-size:1rem;margin-top:-0.5rem;">{{ photo.caption }}</p>
   {% endif %}
 
+  {% if locked %}
+  <p class="success">您已完成並送出評分,以下分數與評語僅供檢視,無法再修改。</p>
+  {% endif %}
+
   <form method="post" action="/judge/photos/{{ photo.id }}/score" id="score-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {% if criteria %}
@@ -32,15 +36,21 @@
         placeholder="{{ score_min }}-{{ score_max }}"
         data-weight="{{ c.weight }}"
         value="{{ existing_values.get(c.name, '') }}"
-        oninput="updateTotal()">
+        oninput="updateTotal()"
+        {{ 'disabled' if locked else '' }}>
     </div>
     {% else %}
     <p class="muted">尚未設定評分項目,請聯絡主辦單位。</p>
     {% endfor %}
 
+    <label for="comment">評語(選填)</label>
+    <textarea id="comment" name="comment" rows="4" style="width:100%;padding:0.55rem 0.6rem;border:1px solid var(--border);border-radius:6px;font-size:1rem;" placeholder="給這件作品的意見或感想..." {{ 'disabled' if locked else '' }}>{{ existing_comment }}</textarea>
+
     <div class="weighted-total">加權總分:<span id="total-display">{{ existing_total if existing_total is not none else '—' }}</span></div>
 
+    {% if not locked %}
     <button type="submit" {{ 'disabled' if not criteria else '' }}>送出 / 更新分數</button>
+    {% endif %}
   </form>
 </div>
 

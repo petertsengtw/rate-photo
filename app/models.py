@@ -63,6 +63,8 @@ class Judge(Base):
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     token: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    agreed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     scores: Mapped[list["Score"]] = relationship(back_populates="judge", cascade="all, delete-orphan")
 
@@ -76,6 +78,7 @@ class Score(Base):
     photo_id: Mapped[int] = mapped_column(ForeignKey("photos.id"), nullable=False)
     criteria_json: Mapped[str] = mapped_column(Text, nullable=False)
     weighted_total: Mapped[float] = mapped_column(Float, nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
     judge: Mapped["Judge"] = relationship(back_populates="scores")
@@ -89,3 +92,10 @@ class AdminUser(Base):
     username: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     is_readonly: Mapped[bool] = mapped_column(default=False, server_default="0")
+
+
+class ContestSettings(Base):
+    __tablename__ = "contest_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    rules_text: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -4,9 +4,11 @@
 
 ## 功能總覽
 
-- **管理後台**:評分項目(名稱/權重)、評審帳號(含免密碼專屬連結)、照片上傳(含作品標題/圖說)、成績總表、CSV 匯出、資料庫備份下載
+- **管理後台**:評分項目(名稱/權重)、評審帳號(含免密碼專屬連結)、照片上傳(含作品標題/圖說)、成績總表、CSV 匯出、資料庫備份下載、比賽辦法設定
 - **唯讀管理帳號**:可瀏覽所有後台頁面與成績,但無法新增/刪除/修改任何資料,且不會看到評審的專屬登入連結與資料庫備份(見 `scripts/create_admin.py` 的 `--readonly` 參數)
-- **評審端**:專屬連結或帳密登入、依組別瀏覽照片(含已評分/未評分狀態與加權分數)、線上評分並即時試算加權總分
+- **比賽辦法同意機制**:評審第一次登入後,必須先閱讀管理員設定的比賽辦法並勾選同意,才能開始評分
+- **評審端**:專屬連結或帳密登入、依組別瀏覽照片(含已評分/未評分狀態與加權分數)、線上評分並即時試算加權總分、每張照片可額外填寫文字評語
+- **完成送出機制**:評審需在所有照片(含兩組)都評分完成後,才能按下「完成評分」按鈕正式送出;送出後分數與評語鎖定,無法再修改
 - **匿名性**:評審之間互不可見,投稿者資訊(`submitter_note`)不會出現在任何評審可存取的頁面或 API
 - **加權計算與破同分**:加權總分 = Σ(項目分數 × 權重) / Σ權重,再對評審取平均;同分時依序比較「≥9 分評審人數」與「單一評審最高分」,大幅降低並列名次機率
 - **安全性**:bcrypt 密碼雜湊、CSRF 防護、登入失敗次數限制、圖片上傳格式與大小驗證、admin/judge session 完全隔離
@@ -41,28 +43,29 @@ PHOTO_CONTEST_SECURE_COOKIES=0 uvicorn app.main:app --reload
 pytest tests/ -v
 ```
 
-測試涵蓋:未登入導向登入頁、評審端不洩漏其他評審身分或投稿者備註、CSRF 防護、加權總分計算、登入失敗次數限制。
+測試涵蓋:未登入導向登入頁、評審端不洩漏其他評審身分或投稿者備註、CSRF 防護、加權總分計算、登入失敗次數限制、比賽辦法同意流程、完成送出後鎖定分數。
 
 ## 目錄結構
 
 ```
 app/
-  main.py           # FastAPI app 進入點
-  config.py         # 環境變數與設定
-  database.py       # SQLAlchemy engine/session
-  models.py         # 資料表定義
-  auth.py           # session cookie 與 CSRF
-  security.py       # 密碼雜湊、rate limiter
-  scoring.py        # 加權總分計算
-  uploads.py        # 圖片上傳驗證
+  main.py              # FastAPI app 進入點
+  config.py            # 環境變數與設定
+  database.py          # SQLAlchemy engine/session、輕量欄位遷移
+  models.py            # 資料表定義
+  auth.py              # session cookie、CSRF、權限檢查(唯讀/需同意比賽辦法)
+  security.py          # 密碼雜湊、rate limiter
+  scoring.py           # 加權總分計算
+  uploads.py           # 圖片上傳驗證
+  contest_settings.py  # 比賽辦法文字的存取
   routers/
-    admin.py        # 管理後台
-    judge.py        # 評審端
-    media.py        # 需登入才能存取的圖片伺服端點
-  templates/         # Jinja2 樣板
+    admin.py           # 管理後台
+    judge.py           # 評審端
+    media.py           # 需登入才能存取的圖片伺服端點
+  templates/           # Jinja2 樣板
   static/style.css
 scripts/create_admin.py
-deploy/              # 部署用腳本與設定檔
+deploy/                # 部署用腳本與設定檔
 tests/
 ```
 
@@ -151,5 +154,5 @@ sudo systemctl status caddy              # 檢查反向代理/HTTPS 狀態
 ## 待確認事項(承接 SDD 第 12 節)
 
 - 是否需要記錄投稿者真實姓名並提供管理員核對得獎名單的介面?目前 `photos.submitter_note` 欄位已保留但未開放任何寫入/顯示介面,如需要可再擴充管理後台。
-- 是否需要評分截止時間鎖定機制?目前評審在比賽期間可隨時修改分數。
-- 是否需要評語(文字備註)欄位?目前僅支援數值評分。
+- 評分鎖定目前是「評審自行按下完成送出」觸發,而非統一的截止時間;如需要主辦單位統一在特定時間強制鎖定所有評審(不論是否已按完成),可再擴充。
+- ~~是否需要評語(文字備註)欄位?~~ 已實作:評審評分時可填寫文字評語,管理員可在成績總表展開查看、CSV 也會匯出。

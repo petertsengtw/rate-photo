@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}比賽辦法{% endblock %}
+{% block content %}
+<div class="card" style="max-width:640px;margin:2rem auto;">
+  <h2>開始評分前,請先閱讀比賽辦法</h2>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <div class="card" style="background:#f0f2f5;white-space:pre-wrap;max-height:50vh;overflow-y:auto;">{{ rules_text or '主辦單位尚未設定比賽辦法內容,請聯絡管理員。' }}</div>
+  <form method="post" action="/judge/agreement">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label style="display:flex;align-items:center;gap:0.5rem;font-weight:600;margin-top:1rem;">
+      <input type="checkbox" name="agree" value="yes" required style="width:auto;">
+      我已閱讀並同意本次比賽辦法
+    </label>
+    <button type="submit">開始評分</button>
+  </form>
+</div>
+{% endblock %}

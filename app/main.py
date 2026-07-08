@@ -49,6 +49,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
             return RedirectResponse(url="/admin/login", status_code=303)
         if request.url.path.startswith("/judge"):
             return RedirectResponse(url="/judge/login", status_code=303)
+    if exc.status_code == 428 and request.url.path.startswith("/judge"):
+        return RedirectResponse(url="/judge/agreement", status_code=303)
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 

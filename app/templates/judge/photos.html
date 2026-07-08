@@ -4,6 +4,9 @@
 {% block content %}
 <div class="card">
   <h2>{{ group.name }}</h2>
+  {% if locked %}
+  <p class="success">您已完成並送出評分,以下為唯讀檢視。</p>
+  {% endif %}
   {% if request.query_params.get('saved') %}
   <p class="success">編號 {{ request.query_params.get('saved') }} 已儲存評分</p>
   {% endif %}

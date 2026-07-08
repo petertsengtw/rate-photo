@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}比賽設定{% endblock %}
+{% block nav %}{% include "admin/_nav.html" %}{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>比賽辦法設定</h2>
+  <p class="muted">評審登入後,第一次進入評分前必須閱讀這段內容並勾選同意,才能開始評分。可以直接貼上完整辦法文字,或附上連結。</p>
+  {% if not admin.is_readonly %}
+  <form method="post" action="/admin/settings">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>比賽辦法內容</label>
+    <textarea name="rules_text" rows="12" style="width:100%;padding:0.6rem;border:1px solid var(--border);border-radius:6px;font-size:0.95rem;">{{ settings.rules_text or '' }}</textarea>
+    <button type="submit">儲存</button>
+  </form>
+  {% else %}
+  <div class="card" style="background:#f0f2f5;white-space:pre-wrap;">{{ settings.rules_text or '(尚未設定)' }}</div>
+  {% endif %}
+</div>
+{% endblock %}

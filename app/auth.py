@@ -112,6 +112,12 @@ def get_current_judge(request: Request, db: Session = Depends(get_db)) -> Judge:
     return judge
 
 
+def require_judge_agreed(judge: Judge = Depends(get_current_judge)) -> Judge:
+    if judge.agreed_at is None:
+        raise HTTPException(status_code=status.HTTP_428_PRECONDITION_REQUIRED, detail="請先閱讀並同意比賽辦法")
+    return judge
+
+
 def get_current_judge_optional(request: Request, db: Session = Depends(get_db)) -> Judge | None:
     session = _read_session(request, JUDGE_COOKIE_NAME, _judge_serializer)
     if not session:

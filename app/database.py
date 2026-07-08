@@ -43,3 +43,16 @@ def apply_sqlite_column_migrations() -> None:
         if "is_readonly" not in admin_columns:
             conn.execute(text("ALTER TABLE admin_users ADD COLUMN is_readonly BOOLEAN NOT NULL DEFAULT 0"))
             conn.commit()
+
+        judge_columns = {row[1] for row in conn.execute(text("PRAGMA table_info(judges)"))}
+        if "agreed_at" not in judge_columns:
+            conn.execute(text("ALTER TABLE judges ADD COLUMN agreed_at DATETIME"))
+            conn.commit()
+        if "submitted_at" not in judge_columns:
+            conn.execute(text("ALTER TABLE judges ADD COLUMN submitted_at DATETIME"))
+            conn.commit()
+
+        score_columns = {row[1] for row in conn.execute(text("PRAGMA table_info(scores)"))}
+        if "comment" not in score_columns:
+            conn.execute(text("ALTER TABLE scores ADD COLUMN comment TEXT"))
+            conn.commit()
