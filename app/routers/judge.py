@@ -213,6 +213,7 @@ def photos_list(
     db: Session = Depends(get_db),
 ):
     csrf_token = ensure_csrf_cookie(request, response)
+    groups = db.query(Group).order_by(Group.id).all()
     group_obj = db.query(Group).filter_by(code=group).first()
     if not group_obj:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="找不到組別")
@@ -229,6 +230,7 @@ def photos_list(
         request,
         "judge/photos.html",
         {
+            "groups": groups,
             "group": group_obj,
             "photo_rows": photo_rows,
             "csrf_token": csrf_token,

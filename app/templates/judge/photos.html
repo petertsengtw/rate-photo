@@ -4,6 +4,11 @@
 {% block content %}
 <div class="card">
   <h2>{{ group.name }}</h2>
+  <div class="group-tabs">
+    {% for g in groups %}
+    <a href="/judge/photos?group={{ g.code }}" class="{{ 'active' if g.code == group.code else '' }}">{{ g.name }}</a>
+    {% endfor %}
+  </div>
   {% if locked %}
   <p class="success">您已完成並送出評分,以下為唯讀檢視。</p>
   {% endif %}
