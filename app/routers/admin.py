@@ -333,6 +333,11 @@ def _compute_results(db: Session, group_code: str):
             for s in scores
             if s.comment
         ]
+        scores_by_judge_id = {s.judge_id: s.weighted_total for s in scores}
+        judge_scores = [
+            {"judge_name": j.name, "score": scores_by_judge_id.get(j.id)}
+            for j in judges
+        ]
         rows.append(
             {
                 "photo": photo,
@@ -343,6 +348,7 @@ def _compute_results(db: Session, group_code: str):
                 "high_score_count": high_score_count,
                 "max_single_score": max_single_score,
                 "comments": comments,
+                "judge_scores": judge_scores,
             }
         )
 
@@ -405,10 +411,16 @@ def export_csv(
     rows, judges = _compute_results(db, group)
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    header = ["排名", "編號", "加權平均分", "已評分評審數", "總評審數", f"≥{HIGH_SCORE_THRESHOLD}分評審人數(破同分用)", "單一評審最高分(破同分用)", "評語"]
+    judge_columns = [f"{j.name} 分數" for j in judges]
+    header = (
+        ["排名", "編號", "加權平均分", "已評分評審數", "總評審數", f"≥{HIGH_SCORE_THRESHOLD}分評審人數(破同分用)", "單一評審最高分(破同分用)"]
+        + judge_columns
+        + ["評語"]
+    )
     writer.writerow(header)
     for row in rows:
         comments_text = " | ".join(f"{c['judge_name']}:{c['comment']}" for c in row["comments"])
+        per_judge_scores = [js["score"] if js["score"] is not None else "" for js in row["judge_scores"]]
         writer.writerow(
             [
                 row["rank"] if row["rank"] is not None else "尚未評分",
@@ -418,8 +430,9 @@ def export_csv(
                 row["total_judges"],
                 row["high_score_count"] if row["average"] is not None else "",
                 row["max_single_score"] if row["average"] is not None else "",
-                comments_text,
             ]
+            + per_judge_scores
+            + [comments_text]
         )
     buffer.seek(0)
     filename = f"results_{group}.csv"

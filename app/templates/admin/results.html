@@ -17,7 +17,7 @@
   </p>
   <p class="muted">同分時依序比較:①≥{{ high_score_threshold }} 分評審人數 ②單一評審最高分,仍完全相同才會並列名次。</p>
   <table>
-    <thead><tr><th>排名</th><th>編號</th><th>加權平均分</th><th>已評分 / 總評審數</th><th>≥{{ high_score_threshold }} 分人數</th><th>單一最高分</th><th>評語</th></tr></thead>
+    <thead><tr><th>排名</th><th>編號</th><th>加權平均分</th><th>已評分 / 總評審數</th><th>≥{{ high_score_threshold }} 分人數</th><th>單一最高分</th><th>各評審分數</th><th>評語</th></tr></thead>
     <tbody>
       {% for row in rows %}
       <tr>
@@ -27,6 +27,18 @@
         <td>{{ row.judged_count }} / {{ row.total_judges }}</td>
         <td>{{ row.high_score_count if row.average is not none else '—' }}</td>
         <td>{{ row.max_single_score if row.average is not none else '—' }}</td>
+        <td>
+          {% if row.judge_scores %}
+          <details>
+            <summary style="cursor:pointer;color:var(--primary);">查看明細</summary>
+            {% for js in row.judge_scores %}
+            <p class="muted" style="margin:0.2rem 0;"><strong>{{ js.judge_name }}:</strong>{{ js.score if js.score is not none else '未評分' }}</p>
+            {% endfor %}
+          </details>
+          {% else %}
+          <span class="muted">—</span>
+          {% endif %}
+        </td>
         <td>
           {% if row.comments %}
           <details>
@@ -41,7 +53,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="7" class="muted">此組別尚無照片</td></tr>
+      <tr><td colspan="8" class="muted">此組別尚無照片</td></tr>
       {% endfor %}
     </tbody>
   </table>
